@@ -1,0 +1,23 @@
+{
+  "name": "opsview-api",
+  "version": "0.1.0",
+  "description": "A library to access opsview functionality from nodejs scripts instead of interfacing to the REST API directly",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test.js"
+  },
+  "keywords": [
+    "opsview"
+  ],
+  "dependencies":{
+    "bluebird":"3.0.5",
+    "properties-reader":"0.0.13"
+  },
+  "devDependencies":{
+    "mocha":"2.3.4",
+    "chai":"3.4.1",
+    "chai-as-promised":"5.1.0"
+  },
+  "author": "Loïc Prieto",
+  "license": "LGPL-3.0"
+}
