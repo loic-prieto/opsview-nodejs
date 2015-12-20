@@ -1,24 +1,6 @@
 'use strict';
 
 /**
- * When interacting with the opsview server, we need credentials.
- * The idea is to provide them either via environmental variables:
- *   - OPSVIEW_USERNAME
- *   - OPSVIEW_PASSWORD
- * or via a credentials file which is $HOME/.opsview_secret.
- * If the credentials are stored in the credential files, it must be a
- * properties file with the following key-values:
- *   - opsview.login.username=user name
- *   - opsview.login.password=password
- * The code should never have hardcoded these values.
- */
-class CredentialsNotFoundError extends Error {
-    constructor(message){
-        super(message);
-    }
-}
-
-/**
  * Thrown when the properties file for opsview doesn't exist.
  * It is a requirement of the library for this file to exist in
  * $HOME/.opsview_secret.
@@ -36,6 +18,31 @@ class OpsviewPropertiesFileNotFoundError extends Error {
 class OpsviewAuthenticationError extends Error {
     constructor(message){
         super(message);
+    }
+}
+
+/**
+ * This is thrown when an interaction with the Opsview REST API
+ * results in a server error.
+ * Provides a detail attribute to inspect in greater detail the
+ * error.
+ */
+class OpsviewApiError extends Error {
+    /**
+     * @constructor
+     * @param opsviewApiError {object} - as returned by the API server.
+     */
+    constructor(opsviewApiError){
+        super(opsviewApiError.message);
+        this.detail = opsviewApiError.detail;
+    }
+
+    /**
+     * Returns the detail of the API Error.
+     * @return {string}
+     */
+    getDetail(){
+        return this.detail;
     }
 }
 
@@ -59,8 +66,8 @@ class OpsviewVersionDoesNotSupportMethodError extends Error {
     }
 }
 
-exports.CredentialsNotFoundError = CredentialsNotFoundError;
 exports.OpsviewPropertiesFileNotFoundError = OpsviewPropertiesFileNotFoundError;
 exports.OpsviewAuthenticationError = OpsviewAuthenticationError;
 exports.OpsviewVersionNotSupportedError = OpsviewVersionNotSupportedError;
 exports.OpsviewVersionDoesNotSupportMethodError = OpsviewVersionDoesNotSupportMethodError;
+exports.OpsviewApiError = OpsviewApiError;
