@@ -39,6 +39,28 @@ class OpsviewAuthenticationError extends Error {
     }
 }
 
+/**
+ * Thrown when the user tries to instance an opsview object for a
+ * version that is not implemented.
+ */
+class OpsviewVersionNotSupportedError extends Error {
+    constructor(message){
+        super(message);
+    }
+}
+
+/**
+ * Thrown when the user tries to call a method for which the opsview
+ * version is not giving support.
+ */
+class OpsviewVersionDoesNotSupportMethodError extends Error {
+    constructor(message){
+        super(message);
+    }
+}
+
 exports.CredentialsNotFoundError = CredentialsNotFoundError;
 exports.OpsviewPropertiesFileNotFoundError = OpsviewPropertiesFileNotFoundError;
 exports.OpsviewAuthenticationError = OpsviewAuthenticationError;
+exports.OpsviewVersionNotSupportedError = OpsviewVersionNotSupportedError;
+exports.OpsviewVersionDoesNotSupportMethodError = OpsviewVersionDoesNotSupportMethodError;

@@ -1,159 +1,89 @@
-var Promise = require('bluebird');
-var PropertiesReader = require('properties-reader');
-var CredentialsNotFoundError = require('./exceptions').CredentialsNotFoundError;
-var OpsviewPropertiesFileNotFoundError = require('./exceptions').OpsviewPropertiesFileNotFoundError;
-var OpsviewAuthenticationError = require('./exceptions').OpsviewAuthenticationError;
-var extend = require('util')._extend;
+"use strict";
 
-var http = require('request-promise');
+let VersionNotSupportedError = require('./exceptions').OpsviewVersionNotSupportedError;
+let VersionDoesNotSupportMethodError = require('./exceptions').OpsviewVersionDoesNotSupportMethodError;
 
 /**
- * Main class to interact with opsview.
- * Opsview API version: 3.013
+ * Proxy object for the OpsviewVX Classes.
+ * It will use the version specified in the constructor,
+ * or the latest if not specified.
+ * This is the public interface to access the library's functionality.
+ * Usage example:
+ *   let opsview = new Opsview(OPSVIEW_VERSION);
+ *   opsview.setDowntime(arguments)
+ *          .then(function(result){...})
+ *          .catch(OpsviewVersionDoesNotSupportMethodError,function(error){
+ *              console.log(`Error while calling setDowntime: ${error.message}`);
+ *          });
+ *
+ * Until the ES6 Proxy object is available in the stable branch of NodeJS, I'm using this
+ * construct. When it is, this class will extend Proxy.
+ *
  */
 class Opsview {
-    constructor(opsviewEndpoint){
-        this.token = null;
-        this.username = null;
-        this.password = null;
-        this.opsviewPropertiesFile = null;
-        this.opsviewHost = null;
+    /**
+     * @constructor
+     * @param version {number} - optional. If not specified, assumes the latest version implemented.
+     */
+    constructor(version){
+        //If no version is specified, use the latest
+        if(typeof version === "undefined"){
+            version = LATEST_VERSION;
+        }
+        this.version = version;
+        //Dynamic class instantiating
+        try {
+            let OpsviewClass = require(`./OpsviewV${version}`);
+            this.proxiedObject = new OpsviewClass();
+        } catch(error){
+            //An error here means that the file could not be found.
+            console.log(error.message);
+            throw new VersionNotSupportedError(`The specified version opsview (${version}) is not supported by this library`);
+        }
     }
 
     /**
-     * Sets a downtime on a host or set of hosts
-     * to a series of checks/services.
+     * Sets a downtime on a host or set of hosts to a series of checks/services.
+     * @param startTime
+     * @param endTime
+     * @param comment
+     * @param hostPattern
+     * @param servicesPattern
      * @return {Promise}
+     * @throws OpsviewVersionDoesNotSupportMethodError if this method is not supported by the specified opsview version.
      */
     setDowntime(startTime,endTime,comment,hostPattern,servicesPattern){
-        return new Promise(function(resolve,reject){
-            var downtimeRequest = this._buildOptionsFor(REQUEST_OPTIONS.CREATE_DOWNTIME,ENDPOINTS.DOWNTIMES);
-            downtimeRequest.uri += "?svc.hostname="+hostPattern;
-            if(typeof servicesPattern !== "undefined"){
-                downtimeRequest.uri += "&svc.servicename="+servicesPattern;
-            }
-        });
+        return this._tryMethod(this.proxiedObject.setDowntime,[startTime,endTime,comment,hostPattern,servicesPattern]);
     }
 
     /**
-     * Retrieves the credentials of the opsview user.
-     * They should be put either in environmental variables or
-     * in a secret file $HOME/.opsview_secret
+     * Performs a reload of the configuration.
+     */
+    relops(){
+        return this._tryMethod(this.proxiedObject.relops,[]);
+    }
+
+    /**
+     * Tries to execute a method of the proxied object in a defensive manner.
+     * Checks that the method is implemented.
+     * @param method {Function} - The method to call on the proxied object
+     * @param argumentsArray {object[]} - the argumentsArray to be used in the function
+     * @throws OpsviewVersionDoesNotSupportMethodError if the method is not implemented by the proxied object.
+     * @private
      *
-     * Stores the result in the username and password attributes
-     * of the instance.
-     *
-     * @private
-     * @throws CredentialsNotFoundError when the credentials cannot be found.
      */
-    _getCredentials(){
-        var opsviewProperties = this._getOpsviewProperties();
-        username = opsviewProperties.get(USERNAME_KEY);
-        password = opsviewProperties.get(PASSWORD_KEY);
-
-        // We can only provide these values by either of these two methods. If none are found,
-        // then we must throw an exception
-        if(typeof username === 'undefined') {
-            throw new CredentialsNotFoundError('Could not retrieve credentials either from environment or from credential file');
+    _tryMethod(method,argumentsArray){
+        if(typeof method === 'undefined' ){
+            throw new VersionDoesNotSupportMethodError(`The desired method is not supported in this version (${this.version})`);
         }
-
-        this.username = username;
-        this.password = password;
-    }
-
-    /**
-     * Obtains a properties object from the opsview properties file that must exist
-     * in $HOME/.opsview_secret
-     * @returns {PropertiesReader}
-     * @throws {OpsviewPropertiesFileNotFoundError} if the opsview file is not found
-     * @private
-     */
-    _getOpsviewProperties(){
-        if(this.opsviewPropertiesFile === null){
-            let isWindows = process.platform === 'win32';
-            let home = process.env[isWindows? 'USERPROFILE' : 'HOME'];
-            try {
-                let opsviewProperties = PropertiesReader(home+"/"+OPSVIEW_SECRET_FILE);
-            } catch(error){ //Normalize file not found error
-                throw new OpsviewPropertiesFileNotFoundError('The opsview properties file must existe in HOME/.opsview_secret');
-            }
-            this.opsviewPropertiesFile = opsviewProperties;
-        }
-
-        return this.opsviewPropertiesFile;
-    }
-
-    /**
-     * Connects to the opsview API to obtain a token if it has no token.
-     * @return {Promise}
-     * @throws
-     * @private
-     */
-    _getToken(){
-        var self = this;
-        return new Promise(function(resolve,reject){
-            if(self.username === null) {
-                self._getCredentials();
-            }
-            if(self.token === null){
-                self.opsviewHost = self._getOpsviewProperties().get(OPSVIEW_HOST_KEY)
-            }
-
-            var authenticationRequest = self._buildOptionsFor(REQUEST_OPTIONS.AUTHENTICATION,ENDPOINTS.AUTHENTICATION);
-            authenticationRequest.body = {
-                username:self.username,
-                password:self.password
-            }
-
-            http(authenticationRequest)
-                .then(function(response){
-                    self.token = response.token;
-                    resolve(self.token);
-                })
-                .catch(function(error){
-                    throw new OpsviewAuthenticationError('The opsview authentication api throwed an error: '+error.message);
-                });
-        });
-    }
-
-    /**
-     * Builds a request object for the http request method.
-     * @param operation
-     * @param endpoint
-     * @private
-     */
-    _buildOptionsFor(operation,endpoint){
-        var requestOptions = extend({},operation);
-        requestOptions.uri = self.opsviewHost+endpoint;
-
-        return requestOptions;
+        return method.apply(this.proxiedObject,argumentsArray);
     }
 }
 
-var OPSVIEW_SECRET_FILE = '.opsview_secret';
-var USERNAME_KEY = 'opsview.login.username';
-var PASSWORD_KEY = 'opsview.login.password';
-var OPSVIEW_HOST_KEY = 'opsview.host';
+/**
+ * The latest version of the opsview class.
+ * @type {number}
+ */
+let LATEST_VERSION = 3;
 
-var ENDPOINTS = {
-    AUTHENTICATION: "/login",
-    DOWNTIMES: '/downtime'
-};
-
-var REQUEST_OPTIONS = {
-    AUTHENTICATION: {
-        method:'POST',
-        headers:JSON_HEADERS,
-        json:true
-    },
-    CREATE_DOWNTIME: {
-        method:'POST',
-        headers:JSON_HEADERS,
-        json:true
-    }
-};
-
-var JSON_HEADERS = {
-    "Content-type":"application/json",
-    "Accept":"application/json"
-};
+module.exports = Opsview;
