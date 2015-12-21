@@ -1,6 +1,6 @@
 "use strict";
 
-let VersionNotSupportedError = require('./exceptions').OpsviewVersionNotSupportedError;
+let OpsviewVersionNotSupportedError = require('./exceptions').OpsviewVersionNotSupportedError;
 let VersionDoesNotSupportMethodError = require('./exceptions').OpsviewVersionDoesNotSupportMethodError;
 
 /**
@@ -36,9 +36,8 @@ class Opsview {
             let OpsviewClass = require(`./OpsviewV${version}`);
             this.proxiedObject = new OpsviewClass();
         } catch(error){
-            //An error here means that the file could not be found.
-            console.log(error.message);
-            throw new VersionNotSupportedError(`The specified version opsview (${version}) is not supported by this library`);
+            //An error here means that the code file could not be found.
+            throw new OpsviewVersionNotSupportedError(`The specified version opsview (${version}) is not supported by this library`);
         }
     }
 

@@ -15,17 +15,9 @@ let OpsviewApiError = require('./exceptions').OpsviewApiError;
 class OpsviewV3 {
     /**
      * @constructor
-     * @param httpService {object} - The http service. This class is designed to use the request-promise http library
-     *                                so the provided object should have the same interface. If no object is provided, then
-     *                                the http service from the request-promise library is used.
-     * @param propertiesReaderService {object} - The properties reader service. This class is designed to use the properties-reader
-     *                                           library, so an interface-compatible object should be provided. Defaults to the
-     *                                           original library service if the parameter is not provided.
      * @throws OpsviewPropertiesFileNotFoundError if the opsview file is not found
      */
-    constructor(httpService=http,propertiesReaderService=PropertiesReader) {
-        this.http = httpService;
-        this.propertiesReader = propertiesReaderService;
+    constructor() {
         this.token = null;
         this.username = this._getOpsviewProperties().get(USERNAME_KEY);
         this.password = this._getOpsviewProperties().get(PASSWORD_KEY);
@@ -64,7 +56,7 @@ class OpsviewV3 {
                 requestObject.body.endtime = endTime;
                 requestObject.body.comment = comment;
 
-                return this.http(requestObject)
+                return http(requestObject)
                     .catch(function(errorObject){
                         throw new OpsviewApiError(errorObject);
                     });
@@ -82,9 +74,9 @@ class OpsviewV3 {
      * @static
      */
     static _selectHostAndService(requestObject, hostPattern, servicePattern) {
-        requestObject.uri += `?svc.hostname=${hostPattern}`;
-        if (typeof servicePattern !== "undefined") {
-            requestObject.uri += `&svc.servicename=${servicePattern}`;
+        requestObject.qs['svc.hostname'] = hostPattern;
+        if(typeof servicePattern !== 'undefined') {
+            requestObject.qs['svc.servicename'] = servicePattern;
         }
     }
 
@@ -114,7 +106,8 @@ class OpsviewV3 {
      * @throws OpsviewAuthenticationError if the opsview rest api produced an error while authenticating while retrieving the token
      * @private
      */
-    _buildOptionsFor(operation, endpoint, insertToken = true) {
+    _buildOptionsFor(operation, endpoint, insertToken) {
+        insertToken = insertToken || true;
         var result = null;
 
         let requestOptions = extend({}, operation);
@@ -152,7 +145,7 @@ class OpsviewV3 {
                 requestObject.body.username = this.username;
                 requestObject.body.password = this.password;
 
-                return this.http(requestObject).promise().bind(this)
+                return http(requestObject).promise().bind(this)
                     .then(function (response) {
                         this.token = response.token;
                         return this.token;
@@ -172,11 +165,11 @@ class OpsviewV3 {
      * @private
      */
     _getOpsviewProperties() {
-        if (this.opsviewPropertiesFile === null) {
+        if (typeof this.opsviewPropertiesFile === 'undefined') {
             let isOldWindows = process.platform === 'win32';
             let home = process.env[isOldWindows ? 'USERPROFILE' : 'HOME'];
             try {
-                this.opsviewPropertiesFile = this.propertiesReader(home + "/" + OPSVIEW_SECRET_FILE);
+                this.opsviewPropertiesFile = PropertiesReader(home + "/" + OPSVIEW_SECRET_FILE);
             } catch (error) { //Normalize file not found error
                 throw new OpsviewPropertiesFileNotFoundError('The opsview properties file must exist in HOME/.opsview_secret');
             }
@@ -201,13 +194,13 @@ let JSON_HEADERS = {
 let REQUEST_OPTIONS = {
     AUTHENTICATION: {
         method: 'POST',
-        body: {},
+        body: {},qs:{},
         headers: JSON_HEADERS,
         json: true
     },
     CREATE_DOWNTIME: {
         method: 'POST',
-        body: {},
+        body: {},qs:{},
         headers: JSON_HEADERS,
         json: true
     }
