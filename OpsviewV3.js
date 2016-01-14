@@ -24,6 +24,15 @@ class OpsviewV3 {
         this.opsviewHost = this._getOpsviewProperties().get(OPSVIEW_HOST_KEY);
     }
 
+	/**
+	 * Reloads the configuration of the server so that all pending changes are applied.
+	 * @param {Date} 
+	 * @return {Promise} - A Promise 
+	 */
+	/*relops(startTime){
+		
+	}*/
+
     /**
      * Sets a downtime on a host or set of hosts
      * to a series of checks/services.
@@ -203,12 +212,19 @@ let REQUEST_OPTIONS = {
         body: {},qs:{},
         headers: JSON_HEADERS,
         json: true
-    }
+    },
+	RELOAD: {
+		method: 'POST',
+        body: {},qs:{},
+        headers: JSON_HEADERS,
+        json: true
+	}
 };
 
 let ENDPOINTS = {
     AUTHENTICATION: "/login",
-    DOWNTIMES: '/downtime'
+    DOWNTIMES: '/downtime',
+	RELOAD: '/reload'
 };
 
 module.exports = OpsviewV3;
