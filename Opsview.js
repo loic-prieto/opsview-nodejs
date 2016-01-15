@@ -1,7 +1,7 @@
 "use strict";
 
-let OpsviewVersionNotSupportedError = require('./exceptions').OpsviewVersionNotSupportedError;
-let VersionDoesNotSupportMethodError = require('./exceptions').OpsviewVersionDoesNotSupportMethodError;
+var OpsviewVersionNotSupportedError = require('./exceptions').OpsviewVersionNotSupportedError;
+var VersionDoesNotSupportMethodError = require('./exceptions').OpsviewVersionDoesNotSupportMethodError;
 
 /**
  * Proxy object for the OpsviewVX Classes.
@@ -56,10 +56,24 @@ class Opsview {
     }
 
     /**
-     * Performs a reload of the configuration.
-     */
-    relops(){
-        return this._tryMethod(this.proxiedObject.relops,[]);
+	 * Reloads the configuration of the server so that all pending changes are applied.
+	 * @param startTime {Date} - When to execute the reload. Will schedule it with at system command in linux.
+	 * @return {Promise} - A Promise  with the following result:
+	 * 	status 200: {
+	 *		server_status: ...,
+	 *		configuration_status: ...,
+	 *		average_duration: ...,
+	 *		lastupdated: ...,
+	 *		auditlog_entries: ...,
+	 *		messages: [ ... ]
+	 * 	}
+	 * 	status 409: {
+	 *		server_status: 1,
+	 *		messages: [ "Reload already running" ]
+	 * 	}
+	 */
+    reload(startTime){
+        return this._tryMethod(this.proxiedObject.reload,[startTime]);
     }
 
     /**
@@ -83,6 +97,6 @@ class Opsview {
  * The latest version of the opsview class.
  * @type {number}
  */
-let LATEST_VERSION = 3;
+var LATEST_VERSION = 3;
 
 module.exports = Opsview;

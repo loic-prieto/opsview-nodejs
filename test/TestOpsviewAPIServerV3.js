@@ -1,19 +1,22 @@
-let express = require('express');
-let bodyParser = require('body-parser');
+"use strict";
+
+var express = require('express');
+var bodyParser = require('body-parser');
 
 /**
  * A test Opsview API Server to be used by the opsview library tests.
  */
 class TestOpsviewAPIServerV3 {
     constructor(){
-        this.server = express();
-        this.server.use(bodyParser.json());
+        this.app = express();
+        this.app.use(bodyParser.json());
         this._setupLoginEndpoint();
         this._setupDowntimesEndpoint();
+		this._setupReloadEndpoint();
     }
 
     start(doneFn){
-        this.server.listen(1234,doneFn);
+        this.server = this.app.listen(1234,doneFn);
     }
 
     stop(){
@@ -21,7 +24,7 @@ class TestOpsviewAPIServerV3 {
     }
 
     _setupLoginEndpoint(){
-        this.server.post('/login',function(req,res){
+        this.app.post('/login',function(req,res){
             let body = req.body;
             let validCredentials = body.username == VALID_USERNAME && body.password == VALID_PASSWORD;
 
@@ -39,7 +42,7 @@ class TestOpsviewAPIServerV3 {
 
     _setupDowntimesEndpoint(){
         let self = this;
-        this.server.post('/downtime',function(req,rest){
+        this.app.post('/downtime',function(req,res){
             if(self._validHeaders(req)){
                 let servicePattern = req.query['svc.servicename'];
                 let hostPattern = req.query['svc.hostname'];
@@ -80,6 +83,28 @@ class TestOpsviewAPIServerV3 {
         });
     }
 
+	_setupReloadEndpoint(){
+		let self = this;
+		this.app.post('/reload',function(req,res){
+			if(self._validHeaders(req)){
+				res.status(200)
+			       .type(json)
+			       .send({
+					   server_status:0,
+					   configuration_status:"uptodate",
+					   average_duration:1200,
+					   lastupdated:0,
+					   messages:[]
+				   });
+			} else {
+				res.status(401)
+                   .type('json')
+                   .send({'message':'credentials are needed to make a petition.'});
+			}
+			
+		});
+	}
+
     /**
      * Checks whether the headers have valid credentials.
      * Must be (literally):
@@ -101,6 +126,6 @@ class TestOpsviewAPIServerV3 {
 
 module.exports = TestOpsviewAPIServerV3;
 
-let VALID_USERNAME = 'validUsername';
-let VALID_TOKEN = 'validToken';
-let VALID_PASSWORD = 'validPassword';
+var VALID_USERNAME = 'validUsername';
+var VALID_TOKEN = 'validToken';
+var VALID_PASSWORD = 'validPassword';

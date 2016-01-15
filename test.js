@@ -1,16 +1,17 @@
 "use strict";
 
-let chai = require('chai');
+var chai = require('chai');
 chai.use(require("chai-as-promised"));
-let expect = chai.expect;
-let mockery = require('mockery');
-let propertiesReaders = require('./test/PropertiesReaderTestMock');
-let TestOpsviewAPIServerV3 = require('./test/TestOpsviewAPIServerV3');
-let Opsview = require('./index').Opsview;
-let Exceptions = require('./index').Exceptions;
+var expect = chai.expect;
+var mockery = require('mockery');
+var propertiesReaders = require('./test/PropertiesReaderTestMock');
+var TestOpsviewAPIServerV3 = require('./test/TestOpsviewAPIServerV3');
+var Opsview = require('./index').Opsview;
+var Exceptions = require('./index').Exceptions;
+var util = require('util');
 
-let NON_IMPLEMENTED_VERSION = 999;
-let IMPLEMENTED_VERSION = 3;
+var NON_IMPLEMENTED_VERSION = 999;
+var IMPLEMENTED_VERSION = 3;
 
 describe('Opsview JS Library', function () {
 
@@ -47,11 +48,18 @@ describe('Opsview JS Library', function () {
 				it('Should fail the request if valid credentials are not provided',function(){
 					//Modify the properties reader so that it retrieves our test server with valid credentials
 					mockery.registerMock('properties-reader',propertiesReaders.InvalidPropertiesReaderMock);
-					mockery.enable();
+					mockery.enable({warnOnUnregistered:false});
 
 					let opsview = new Opsview(IMPLEMENTED_VERSION);
-					let invalidCall = function(){opsview.
-					expect(
+					let invalidCall = function(){return opsview.setDowntime(new Date(),new Date(),'','','');};
+					//expect(invalidCall).to.throw(Exceptions.OpsviewAuthenticationError);
+					invalidCall()
+						.then(function(data){
+							console.log("All is nice: "+util.inspect(data));
+						})
+						.catch(function(error){
+							console.log("Error!: "+error);
+						});
 				});
 			});
 		});

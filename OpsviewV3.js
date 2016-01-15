@@ -1,12 +1,12 @@
 "use strict";
 
-let Promise = require('bluebird');
-let PropertiesReader = require('properties-reader');
-let extend = require('util')._extend;
-let http = require('request-promise');
-let OpsviewPropertiesFileNotFoundError = require('./exceptions').OpsviewPropertiesFileNotFoundError;
-let OpsviewAuthenticationError = require('./exceptions').OpsviewAuthenticationError;
-let OpsviewApiError = require('./exceptions').OpsviewApiError;
+var Promise = require('bluebird');
+var PropertiesReader = require('properties-reader');
+var extend = require('util')._extend;
+var http = require('request-promise');
+var OpsviewPropertiesFileNotFoundError = require('./exceptions').OpsviewPropertiesFileNotFoundError;
+var OpsviewAuthenticationError = require('./exceptions').OpsviewAuthenticationError;
+var OpsviewApiError = require('./exceptions').OpsviewApiError;
 
 /**
  * Main class to interact with opsview.
@@ -26,12 +26,29 @@ class OpsviewV3 {
 
 	/**
 	 * Reloads the configuration of the server so that all pending changes are applied.
-	 * @param {Date} 
-	 * @return {Promise} - A Promise 
+	 * To be implemented yet. Returns an empty promise for now.
+	 * @param startTime {Date} - When to execute the reload. Will schedule it with at system command in linux.
+	 * @return {Promise} - A Promise  with the following result:
+	 * 	status 200: {
+	 *		server_status: ...,
+	 *		configuration_status: ...,
+	 *		average_duration: ...,
+	 *		lastupdated: ...,
+	 *		auditlog_entries: ...,
+	 *		messages: [ ... ]
+	 * 	}
+	 * 	status 409: {
+	 *		server_status: 1,
+	 *		messages: [ "Reload already running" ]
+	 * 	}
 	 */
-	/*relops(startTime){
-		
-	}*/
+	reload(startTime){
+		return this._buildOptionsFor(REQUEST_OPTIONS.RELOAD,ENDPOINTS.RELOAD,true)
+			.bind(this)
+			.then(function(requestObject){
+				return {};
+			});
+	}
 
     /**
      * Sets a downtime on a host or set of hosts
@@ -110,18 +127,18 @@ class OpsviewV3 {
      *
      * @param operation {string} - The operation to perform, selected from the REQUEST_OPTIONS enum.
      * @param endpoint {string} - the endpoint to reach, selected from the ENDPOINTS enum.
-     * @param insertToken {boolean} - Whether to retrieve the token from the server if it doesn't exist. Defaults to true if not specified
+     * @param fetchToken {boolean} - Whether to retrieve the token from the server if it doesn't exist. Defaults to true if not specified
      * @return {Promise} an initialized http request object.
      * @throws OpsviewAuthenticationError if the opsview rest api produced an error while authenticating while retrieving the token
      * @private
      */
-    _buildOptionsFor(operation, endpoint, insertToken) {
-        insertToken = insertToken || true;
+    _buildOptionsFor(operation, endpoint, fetchToken) {
+        fetchToken = typeof fetchToken === 'undefined' ? true : fetchToken;
         var result = null;
 
         let requestOptions = extend({}, operation);
-        requestOptions.uri = self.opsviewHost + endpoint;
-        if (this.token === null && insertToken) {
+        requestOptions.uri = this.opsviewHost + endpoint;
+        if (this.token === null && fetchToken) {
             result = this._getToken()
                 .bind(this)
                 .then(function (token) {
@@ -188,19 +205,19 @@ class OpsviewV3 {
     }
 }
 
-let OPSVIEW_SECRET_FILE = '.opsview_secret';
-let USERNAME_KEY = 'opsview.login.username';
-let PASSWORD_KEY = 'opsview.login.password';
-let OPSVIEW_HOST_KEY = 'opsview.host';
-let OPSVIEW_HEADER_USERNAME = 'X-Opsview-Username';
-let OPSVIEW_HEADER_TOKEN = 'X-Opsview-Token';
+var OPSVIEW_SECRET_FILE = '.opsview_secret';
+var USERNAME_KEY = 'opsview.login.username';
+var PASSWORD_KEY = 'opsview.login.password';
+var OPSVIEW_HOST_KEY = 'opsview.host';
+var OPSVIEW_HEADER_USERNAME = 'X-Opsview-Username';
+var OPSVIEW_HEADER_TOKEN = 'X-Opsview-Token';
 
-let JSON_HEADERS = {
+var JSON_HEADERS = {
     "Content-type": "application/json",
     "Accept": "application/json"
 };
 
-let REQUEST_OPTIONS = {
+var REQUEST_OPTIONS = {
     AUTHENTICATION: {
         method: 'POST',
         body: {},qs:{},
@@ -221,7 +238,7 @@ let REQUEST_OPTIONS = {
 	}
 };
 
-let ENDPOINTS = {
+var ENDPOINTS = {
     AUTHENTICATION: "/login",
     DOWNTIMES: '/downtime',
 	RELOAD: '/reload'
