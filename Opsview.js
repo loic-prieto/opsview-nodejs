@@ -2,7 +2,7 @@
 
 var OpsviewVersionNotSupportedError = require('./exceptions').OpsviewVersionNotSupportedError;
 var VersionDoesNotSupportMethodError = require('./exceptions').OpsviewVersionDoesNotSupportMethodError;
-
+var OpsviewPropertiesFileNotFoundError = require('./exceptions').OpsviewPropertiesFileNotFoundError; 
 /**
  * Proxy object for the OpsviewVX Classes.
  * It will use the version specified in the constructor,
@@ -36,8 +36,12 @@ class Opsview {
             let OpsviewClass = require(`./OpsviewV${version}`);
             this.proxiedObject = new OpsviewClass();
         } catch(error){
-            //An error here means that the code file could not be found.
-            throw new OpsviewVersionNotSupportedError(`The specified version opsview (${version}) is not supported by this library`);
+			if(error instanceof OpsviewPropertiesFileNotFoundError) {
+				throw error;
+			} else {
+				OpsviewPropertiesFileNotFoundError//An error here means that the code file could not be found.
+	            throw new OpsviewVersionNotSupportedError(`The specified version opsview (${version}) is not supported by this library: ${error}`);
+			}
         }
     }
 

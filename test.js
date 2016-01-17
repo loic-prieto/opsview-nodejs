@@ -24,10 +24,12 @@ describe('Opsview JS Library', function () {
 			it('should instantiate correctly the latest implemented version',function(){
 				let latestVersionInstantiation = function(){new Opsview();};
 				expect(latestVersionInstantiation).to.not.throw(Exceptions.OpsviewVersionNotSupportedError);
+				expect(latestVersionInstantiation).to.not.throw(Exceptions.OpsviewPropertiesFileNotFoundError);
 			});
 			it('should instantiate correctly the implemented version 3',function(){
 				let latestVersionInstantiation = function(){new Opsview(IMPLEMENTED_VERSION);};
 				expect(latestVersionInstantiation).to.not.throw(Exceptions.OpsviewVersionNotSupportedError);
+				expect(latestVersionInstantiation).to.not.throw(Exceptions.OpsviewPropertiesFileNotFoundError);
 			});
 		});
 		describe('Usage',function(){
@@ -38,6 +40,11 @@ describe('Opsview JS Library', function () {
 					//Initialize the TestOpsviewAPIServer V3.
 					testServer.start(done);
 				});
+				beforeEach(function(){
+					//Initialize the mock system
+					mockery.enable();
+					mockery.registerAllowable('./OpsviewV3');
+				});
 				after(function(){
 					testServer.stop();
 				});
@@ -45,10 +52,9 @@ describe('Opsview JS Library', function () {
 					mockery.disable(); //Makes sure the mockery is terminated by the time the test case is performed.
 				});
 				//Tests
-				it('Should fail the request if valid credentials are not provided',function(){
-					//Modify the properties reader so that it retrieves our test server with valid credentials
+				it('Should fail the request if valid credentials are not provided',function(done){
+					//Modify the properties reader so that it retrieves our test server with invalid credentials
 					mockery.registerMock('properties-reader',propertiesReaders.InvalidPropertiesReaderMock);
-					mockery.enable({warnOnUnregistered:false});
 
 					let opsview = new Opsview(IMPLEMENTED_VERSION);
 					let invalidCall = function(){return opsview.setDowntime(new Date(),new Date(),'','','');};
@@ -59,6 +65,9 @@ describe('Opsview JS Library', function () {
 						})
 						.catch(function(error){
 							console.log("Error!: "+error);
+						})
+						.finally(function(error){
+							done();
 						});
 				});
 			});

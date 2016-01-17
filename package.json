@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "A library to access opsview functionality from nodejs scripts instead of interfacing to the REST API directly",
   "main": "index.js",
+  "repository":"https://github.com/loic-prieto/opsview-nodejs.git",
   "scripts": {
     "test": "mocha test.js"
   },
@@ -11,6 +12,7 @@
   ],
   "dependencies":{
     "bluebird":"3.0.5",
+	"continuation-local-storage":"~3",
     "request-promise":"1.0.2",
     "properties-reader":"0.0.13"
   },

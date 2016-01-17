@@ -22,7 +22,8 @@ class OpsviewV3 {
         this.username = this._getOpsviewProperties().get(USERNAME_KEY);
         this.password = this._getOpsviewProperties().get(PASSWORD_KEY);
         this.opsviewHost = this._getOpsviewProperties().get(OPSVIEW_HOST_KEY);
-    }
+		console.log(`I have obtained: username=${this._getOpsviewProperties().get(USERNAME_KEY)}`);
+	}
 
 	/**
 	 * Reloads the configuration of the server so that all pending changes are applied.
@@ -180,7 +181,6 @@ class OpsviewV3 {
                         throw new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.message}`);
                     });
             });
-
     }
 
     /**
