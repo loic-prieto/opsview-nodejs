@@ -10,7 +10,7 @@ exports.ValidPropertiesReaderMock = function(){
 			let result = "";
 			switch(key){
 				case OPSVIEW_HOST_KEY:
-					result = 'http://127.0.0.1:1234/rest';break;
+					result = 'http://127.0.0.1:1234';break;
 				case USERNAME_KEY:
 					result = 'validUsername';break;
 				case PASSWORD_KEY:
@@ -29,7 +29,7 @@ exports.InvalidPropertiesReaderMock = function(){
 			let result = "";
 			switch(key){
 				case OPSVIEW_HOST_KEY:
-					result = 'http://127.0.0.1:1234/rest';break;
+					result = 'http://127.0.0.1:1234';break;
 				case USERNAME_KEY:
 					result = 'invalidUsername';break;
 				case PASSWORD_KEY:

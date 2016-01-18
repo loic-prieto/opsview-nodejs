@@ -2,7 +2,8 @@
 
 var Promise = require('bluebird');
 var PropertiesReader = require('properties-reader');
-var extend = require('util')._extend;
+var util = require('util');
+var extend = util._extend;
 var http = require('request-promise');
 var OpsviewPropertiesFileNotFoundError = require('./exceptions').OpsviewPropertiesFileNotFoundError;
 var OpsviewAuthenticationError = require('./exceptions').OpsviewAuthenticationError;
@@ -22,12 +23,11 @@ class OpsviewV3 {
         this.username = this._getOpsviewProperties().get(USERNAME_KEY);
         this.password = this._getOpsviewProperties().get(PASSWORD_KEY);
         this.opsviewHost = this._getOpsviewProperties().get(OPSVIEW_HOST_KEY);
-		console.log(`I have obtained: username=${this._getOpsviewProperties().get(USERNAME_KEY)}`);
 	}
 
 	/**
 	 * Reloads the configuration of the server so that all pending changes are applied.
-	 * To be implemented yet. Returns an empty promise for now.
+	 * TODO: To be implemented yet. Returns an empty promise for now.
 	 * @param startTime {Date} - When to execute the reload. Will schedule it with at system command in linux.
 	 * @return {Promise} - A Promise  with the following result:
 	 * 	status 200: {
@@ -177,8 +177,8 @@ class OpsviewV3 {
                         this.token = response.token;
                         return this.token;
                     })
-                    .catch(function (error) {
-                        throw new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.message}`);
+                    .catch(function(error) {
+                        throw new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.error.message}`);
                     });
             });
     }

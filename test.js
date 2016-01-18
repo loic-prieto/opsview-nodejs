@@ -42,14 +42,14 @@ describe('Opsview JS Library', function () {
 				});
 				beforeEach(function(){
 					//Initialize the mock system
-					mockery.enable();
-					mockery.registerAllowable('./OpsviewV3');
+					mockery.enable({useCleanCache: true,warnOnUnregistered: false});
+					mockery.resetCache();
 				});
 				after(function(){
 					testServer.stop();
 				});
 				afterEach(function(){
-					mockery.disable(); //Makes sure the mockery is terminated by the time the test case is performed.
+					mockery.disable(); 
 				});
 				//Tests
 				it('Should fail the request if valid credentials are not provided',function(done){
@@ -57,18 +57,22 @@ describe('Opsview JS Library', function () {
 					mockery.registerMock('properties-reader',propertiesReaders.InvalidPropertiesReaderMock);
 
 					let opsview = new Opsview(IMPLEMENTED_VERSION);
-					let invalidCall = function(){return opsview.setDowntime(new Date(),new Date(),'','','');};
-					//expect(invalidCall).to.throw(Exceptions.OpsviewAuthenticationError);
-					invalidCall()
-						.then(function(data){
-							console.log("All is nice: "+util.inspect(data));
+					let OpsviewAuthenticationError = Exceptions.OpsviewAuthenticationError;
+
+					opsview.setDowntime()
+						.then(function(){
+							done("The call shouldn't have succeeded");
+						})
+						.catch(OpsviewAuthenticationError,function(error){
+							done();
 						})
 						.catch(function(error){
-							console.log("Error!: "+error);
-						})
-						.finally(function(error){
-							done();
+							console.log("error is instance of OpsviewAuthenticationError? " + (error instanceof OpsviewAuthenticationError));
+							done(`The call generated an unexpected error (${error.constructor.name}) ${error.message}`);
 						});
+					//return expect(opsview.setDowntime()).to.eventually.be.rejected
+						//.and.be.an.instanceOf(Exceptions.OpsviewAuthenticationError);
+					//	.and.be.an.instanceOf(Error);
 				});
 			});
 		});
