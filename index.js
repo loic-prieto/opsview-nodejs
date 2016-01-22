@@ -1,6 +1,6 @@
 "use strict";
-let OpsviewProxy = require('./Opsview');
-let Exceptions = require('./exceptions');
+var OpsviewProxy = require('./Opsview');
+var Exceptions = require('./exceptions');
 
 
 /**

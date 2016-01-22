@@ -5,9 +5,10 @@ var PropertiesReader = require('properties-reader');
 var util = require('util');
 var extend = util._extend;
 var http = require('request-promise');
-var OpsviewPropertiesFileNotFoundError = require('./exceptions').OpsviewPropertiesFileNotFoundError;
-var OpsviewAuthenticationError = require('./exceptions').OpsviewAuthenticationError;
-var OpsviewApiError = require('./exceptions').OpsviewApiError;
+var Exceptions = require('./exceptions');
+var OpsviewPropertiesFileNotFoundError = Exceptions.OpsviewPropertiesFileNotFoundError;
+var OpsviewAuthenticationError = Exceptions.OpsviewAuthenticationError;
+var OpsviewApiError = Exceptions.OpsviewApiError;
 
 /**
  * Main class to interact with opsview.
@@ -178,7 +179,14 @@ class OpsviewV3 {
                         return this.token;
                     })
                     .catch(function(error) {
-                        throw new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.error.message}`);
+                        var e = new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.error.message}`);
+						console.log("[_getToken]OpsviewAuthenticationError.name: "+OpsviewAuthenticationError.name);
+						console.log("[_getToken]e.constructor.name: "+e.constructor.name);
+						console.log("[_gettoken]e instanceof OpsviewAuthenticationError? "+(e instanceof OpsviewAuthenticationError));
+						console.log("[_getToken]util.inspect(e): "+util.inspect(e,false,2,true));
+						console.log("[_getToken]e.__proto__: "+e.__proto__);
+						console.log("[_getToken]OpsviewAuthenticationError.__proto__: "+OpsviewAuthenticationError.__proto__);
+						throw e;
                     });
             });
     }

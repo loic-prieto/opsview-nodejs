@@ -7,7 +7,7 @@ var mockery = require('mockery');
 var propertiesReaders = require('./test/PropertiesReaderTestMock');
 var TestOpsviewAPIServerV3 = require('./test/TestOpsviewAPIServerV3');
 var Opsview = require('./index').Opsview;
-var Exceptions = require('./index').Exceptions;
+var Exceptions = require('./exceptions');
 var util = require('util');
 
 var NON_IMPLEMENTED_VERSION = 999;
@@ -52,27 +52,29 @@ describe('Opsview JS Library', function () {
 					mockery.disable(); 
 				});
 				//Tests
-				it('Should fail the request if valid credentials are not provided',function(done){
+				it('Should fail the request if valid credentials are not provided',function(){
 					//Modify the properties reader so that it retrieves our test server with invalid credentials
 					mockery.registerMock('properties-reader',propertiesReaders.InvalidPropertiesReaderMock);
 
 					let opsview = new Opsview(IMPLEMENTED_VERSION);
 					let OpsviewAuthenticationError = Exceptions.OpsviewAuthenticationError;
 
-					opsview.setDowntime()
+					/*opsview.setDowntime()
 						.then(function(){
 							done("The call shouldn't have succeeded");
 						})
-						.catch(OpsviewAuthenticationError,function(error){
+						.catch(Exceptions.OpsviewAuthenticationError,function(error){
 							done();
 						})
+						.catch(Error,function(error){
+							done(`The call generated a Error error: ${error.message}.`);
+						})
 						.catch(function(error){
-							console.log("error is instance of OpsviewAuthenticationError? " + (error instanceof OpsviewAuthenticationError));
 							done(`The call generated an unexpected error (${error.constructor.name}) ${error.message}`);
-						});
-					//return expect(opsview.setDowntime()).to.eventually.be.rejected
-						//.and.be.an.instanceOf(Exceptions.OpsviewAuthenticationError);
-					//	.and.be.an.instanceOf(Error);
+						});*/
+					return expect(opsview.setDowntime()).to.eventually.be.rejected
+						.and.be.an.instanceOf(Exceptions.OpsviewAuthenticationError);
+						//.and.be.an.instanceOf(Error);
 				});
 			});
 		});
