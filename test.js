@@ -52,29 +52,23 @@ describe('Opsview JS Library', function () {
 					mockery.disable(); 
 				});
 				//Tests
-				it('Should fail the request if valid credentials are not provided',function(){
+				it('Should fail the request if valid credentials are not provided',function(done){
 					//Modify the properties reader so that it retrieves our test server with invalid credentials
 					mockery.registerMock('properties-reader',propertiesReaders.InvalidPropertiesReaderMock);
 
 					let opsview = new Opsview(IMPLEMENTED_VERSION);
-					let OpsviewAuthenticationError = Exceptions.OpsviewAuthenticationError;
 
-					/*opsview.setDowntime()
+					opsview.setDowntime()
 						.then(function(){
-							done("The call shouldn't have succeeded");
-						})
-						.catch(Exceptions.OpsviewAuthenticationError,function(error){
-							done();
+							done("The call shouldn't have succeeded, but returned instead.");
 						})
 						.catch(Error,function(error){
-							done(`The call generated a Error error: ${error.message}.`);
+							if(error.constructor.name !== 'OpsviewAuthenticationError'){
+								done(`The call generated an unexpected error: ${error.message}`);
+							} else {
+								done();
+							}
 						})
-						.catch(function(error){
-							done(`The call generated an unexpected error (${error.constructor.name}) ${error.message}`);
-						});*/
-					return expect(opsview.setDowntime()).to.eventually.be.rejected
-						.and.be.an.instanceOf(Exceptions.OpsviewAuthenticationError);
-						//.and.be.an.instanceOf(Error);
 				});
 			});
 		});

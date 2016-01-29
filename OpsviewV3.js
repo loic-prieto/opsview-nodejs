@@ -179,14 +179,7 @@ class OpsviewV3 {
                         return this.token;
                     })
                     .catch(function(error) {
-                        var e = new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.error.message}`);
-						console.log("[_getToken]OpsviewAuthenticationError.name: "+OpsviewAuthenticationError.name);
-						console.log("[_getToken]e.constructor.name: "+e.constructor.name);
-						console.log("[_gettoken]e instanceof OpsviewAuthenticationError? "+(e instanceof OpsviewAuthenticationError));
-						console.log("[_getToken]util.inspect(e): "+util.inspect(e,false,2,true));
-						console.log("[_getToken]e.__proto__: "+e.__proto__);
-						console.log("[_getToken]OpsviewAuthenticationError.__proto__: "+OpsviewAuthenticationError.__proto__);
-						throw e;
+                        throw new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.error.message}`);
                     });
             });
     }
