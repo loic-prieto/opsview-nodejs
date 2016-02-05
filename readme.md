@@ -39,7 +39,7 @@ opsview.host=http://www.monitoringserver.com/rest
 If the file exists, then it is handled automatically by the library and you've only got to use it like so:
 
 ```
-var Opsview = require('opsview-nodejs');
+var Opsview = require('opsview-api');
 
 var opsview = new Opsview(3); //Instances version 3
 
