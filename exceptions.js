@@ -66,8 +66,20 @@ class OpsviewVersionDoesNotSupportMethodError extends Error {
     }
 }
 
+/**
+ * Thrown when an attempt to reload the opsview configuration
+ * is performed but the server notifies that an Opsview Config Reload
+ * is already being performed.
+ */
+class OpsviewReloadAlreadyInPlace extends Error {
+	constructor(message){
+		super(message);
+	}
+}
+
 exports.OpsviewPropertiesFileNotFoundError = OpsviewPropertiesFileNotFoundError;
 exports.OpsviewAuthenticationError = OpsviewAuthenticationError;
 exports.OpsviewVersionNotSupportedError = OpsviewVersionNotSupportedError;
 exports.OpsviewVersionDoesNotSupportMethodError = OpsviewVersionDoesNotSupportMethodError;
 exports.OpsviewApiError = OpsviewApiError;
+exports.OpsviewReloadAlreadyInPlace = OpsviewReloadAlreadyInPlace;

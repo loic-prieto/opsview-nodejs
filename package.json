@@ -14,7 +14,8 @@
     "bluebird":"3.0.5",
 	"continuation-local-storage":"~3",
     "request-promise":"1.0.2",
-    "properties-reader":"0.0.13"
+    "properties-reader":"0.0.13",
+	"human-readable-time":"0.2.3"
   },
   "devDependencies":{
     "mocha":"2.3.4",

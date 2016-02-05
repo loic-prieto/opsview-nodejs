@@ -5,6 +5,7 @@ var PropertiesReader = require('properties-reader');
 var util = require('util');
 var extend = util._extend;
 var http = require('request-promise');
+var hrt = require('human-readable-time');
 var Exceptions = require('./exceptions');
 var OpsviewPropertiesFileNotFoundError = Exceptions.OpsviewPropertiesFileNotFoundError;
 var OpsviewAuthenticationError = Exceptions.OpsviewAuthenticationError;
@@ -27,10 +28,17 @@ class OpsviewV3 {
 	}
 
 	/**
-	 * Reloads the configuration of the server so that all pending changes are applied.
-	 * TODO: To be implemented yet. Returns an empty promise for now.
-	 * @param startTime {Date} - When to execute the reload. Will schedule it with at system command in linux.
-	 * @return {Promise} - A Promise  with the following result:
+	 * Reloads the configuration of the server so that all pending changes are applied. Can be scheduled
+	 * instead of being performed immediately. If it is, then the reload is cancelable, by invoking the
+	 * cancelReload method of this class before the execution.
+	 * Since the scheduling is performed with a simple setTimeout, the nodejs process needs to be alive
+	 * to launch the execution in case it is scheduled.
+	 * TODO: still to implement
+	 * @param startTime {Date} - When to execute the reload. Will schedule it with setTimeout invocation
+	 * 	                         which means that if the node process attending this petition is dead, it
+	 * 	                         won't execute. Must be in the future compared to the current date.                         
+	 * @return {Promise} - 
+	 * 		If a date is not set, A Promise  with the following result:
 	 * 	status 200: {
 	 *		server_status: ...,
 	 *		configuration_status: ...,
@@ -39,17 +47,46 @@ class OpsviewV3 {
 	 *		auditlog_entries: ...,
 	 *		messages: [ ... ]
 	 * 	}
-	 * 	status 409: {
-	 *		server_status: 1,
-	 *		messages: [ "Reload already running" ]
-	 * 	}
+	 * 		if a date is provided, it returns an empty promise, or throws an Error if the date is invalid.
+	 * 	@throws OpsviewReloadAlreadyInPlace - If executed without scheduling, and a reload is already in process
+	 * 	                                      this method will launch this exception.
+	 * 	@throws Error - If the startTime is a date before the current date.
 	 */
 	reload(startTime){
-		return this._buildOptionsFor(REQUEST_OPTIONS.RELOAD,ENDPOINTS.RELOAD,true)
+
+		var operationPromise = this._buildOptionsFor(REQUEST_OPTIONS.RELOAD,ENDPOINTS.RELOAD,true)
 			.bind(this)
 			.then(function(requestObject){
-				return {};
+				return http(requestObject)
+					.then(function(response){
+						if(response.statusCode === 409) {
+							throw new Exceptions.OpsviewReloadAlreadyInPlace();
+						}
+
+						return response;
+					});
 			});
+
+		var resultPromise = operationPromise;
+		if(typeof startTime !== "undefined"){
+			resultPromise = new Promise(function(resolve){
+				var diffTime = startTime - (new Date());
+				if(diffTime < 0) {
+					throw new Error(`The start time must be in the future, but was: ${startTime}`);
+				}
+				//TODO: implement a locking mechanism for relops so that it can be cancelled.
+				setTimeout(function(){
+						operationPromise
+							.then(function(){});
+					},
+					diffTime);
+				//We return immediately, we're not waiting for the scheduling to take place.
+				//We hope for the best
+				resolve();
+			});
+		}
+
+		return resultPromise;
 	}
 
     /**
@@ -80,12 +117,14 @@ class OpsviewV3 {
             .bind(this)
             .then(function (requestObject) {
                 OpsviewV3._selectHostAndService(requestObject, hostPattern, servicesPattern);
-                requestObject.body.starttime = startTime;
-                requestObject.body.endtime = endTime;
+				var opsviewDateFormat = new hrt('%YYYY%/%MM%/%DD% %hh%:%mm%:%ss%');
+                requestObject.body.starttime = opsviewDateFormat(startTime);
+                requestObject.body.endtime = opsviewDateFormat(endTime);
                 requestObject.body.comment = comment;
 
                 return http(requestObject)
                     .catch(function(errorObject){
+						console.log("Error: "+util.inspect(errorObject));
                         throw new OpsviewApiError(errorObject);
                     });
             });
@@ -214,8 +253,8 @@ var OPSVIEW_HEADER_USERNAME = 'X-Opsview-Username';
 var OPSVIEW_HEADER_TOKEN = 'X-Opsview-Token';
 
 var JSON_HEADERS = {
-    "Content-type": "application/json",
-    "Accept": "application/json"
+    "Content-type": "application/json"
+    //"Accept": "application/json"
 };
 
 var REQUEST_OPTIONS = {

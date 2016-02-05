@@ -1,36 +1,21 @@
 "use strict";
 var util = require('util');
+var hrt = require('human-readable-time');
+var Opsview = require('./Opsview.js');
 
-/*class Sub extends Error {
-	constructor(message){
-		super(message);
-	}
-}
+var opsview = new Opsview();
 
-var s = new Sub("lol");
+var from = new Date(2016,2,5,20,40);
+var to = new Date(2016,2,5,20,59);
+var comment = "NodeJS Opsview Library test";
+var hostPattern = "fr-redis-azure";
+var servicePattern = "Redis TCP Port";
 
-console.log("s is instance of Sub? "+ (s instanceof Error));
-console.log("s is instance of Sub? "+ (s instanceof Sub));
-console.log("s's message: " + s.message);*/
-/*var Exceptions = require('./exceptions');
-
-var e = new Exceptions.OpsviewAuthenticationError('lol');
-
-console.log("Is e instanceof OpsviewAuthenticationError ? "+ (e instanceof Exceptions.OpsviewAuthenticationError));*/
-var Exceptions = require('./exceptions');
-
-var e = new Exceptions.OpsviewAuthenticationError('lol');
-console.log("Is e instanceof OpsviewAuthenticationError ? "+ (e instanceof Exceptions.OpsviewAuthenticationError));
-console.log("Name of the constructor with .name is: " + Exceptions.OpsviewAuthenticationError.name);
-console.log("inspect(e): "+util.inspect(e));
-console.log("e.constructor:"+e.constructor);
-console.log("e.constructor.name: "+e.constructor.name);
-console.log("e.__proto__: "+e.__proto__);
-console.log("Exceptions.OpsviewAuthenticationError.__proto__: "+Exceptions.OpsviewAuthenticationError.__proto__);
-console.log("e.prototype: "+e.prototype);
-console.log("Exceptions.OpsviewAuthenticationError.prototype: "+Exceptions.OpsviewAuthenticationError.prototype);
-console.log("typeof Exceptions.OpsviewAuthenticationError.prototype: "+(typeof Exceptions.OpsviewAuthenticationError.prototype));
-console.log("inspect(Exceptions.OpsviewAuthenticationError.prototype): "+util.inspect(Exceptions.OpsviewAuthenticationError.prototype));
-console.log("e is instance of OpsviewAuthenticationError? "+ (e instanceof Exceptions.OpsviewAuthenticationError));
-console.log("e is instance of Error? "+ (e instanceof Error));
-
+console.log(`I'm going to put a downtime on ${hostPattern} for service ${servicePattern}`);
+opsview.setDowntime(from,to,comment,hostPattern,servicePattern)
+	.then(function(response){
+		console.log(`Resultado: ${util.inspect(response)}`);
+	})
+	.catch(function(error){
+		console.log(`Se ha detectado un error: ${error}`);
+	});
