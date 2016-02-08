@@ -4,6 +4,7 @@ var Promise = require('bluebird');
 var PropertiesReader = require('properties-reader');
 var util = require('util');
 var extend = util._extend;
+var fs = require('fs');
 var http = require('request-promise');
 var hrt = require('human-readable-time');
 var Exceptions = require('./exceptions');
@@ -57,32 +58,60 @@ class OpsviewV3 {
 		var operationPromise = this._buildOptionsFor(REQUEST_OPTIONS.RELOAD,ENDPOINTS.RELOAD,true)
 			.bind(this)
 			.then(function(requestObject){
-				return http(requestObject)
-					.then(function(response){
-						if(response.statusCode === 409) {
-							throw new Exceptions.OpsviewReloadAlreadyInPlace();
-						}
+				//Since a reload may already be happening by the time this method starts
+				//we must check.
+				if(!this._isReloadLocked()){
+					this._lockReload();
 
-						return response;
-					});
+					return http(requestObject)
+						.then(function(response){
+							if(response.statusCode === 409) {
+								throw new Exceptions.OpsviewReloadAlreadyInPlace();
+							}
+
+							return response;
+						});
+				} else {
+					throw new Exception.OpsviewReloadAlreadyInPlace();
+				}
+			})
+			.finally(function(){ //Make sure the reload process is unlocked upong ending the reload.
+				this._unlockReload();	
 			});
 
-		var resultPromise = operationPromise;
-		if(typeof startTime !== "undefined"){
-			resultPromise = new Promise(function(resolve){
-				var diffTime = startTime - (new Date());
-				if(diffTime < 0) {
-					throw new Error(`The start time must be in the future, but was: ${startTime}`);
-				}
-				//TODO: implement a locking mechanism for relops so that it can be cancelled.
-				setTimeout(function(){
-						operationPromise
-							.then(function(){});
-					},
-					diffTime);
-				//We return immediately, we're not waiting for the scheduling to take place.
-				//We hope for the best
-				resolve();
+		var resultPromise = null;
+		
+		if(!_isReloadLocked()){
+			_lockReload();
+			var isReloadScheduled = (typeof startTime !== "undefined");
+			if(isReloadScheduled){
+				resultPromise = new Promise(function(resolve){
+					var diffTime = startTime - (new Date());
+					if(diffTime < 0) {
+						throw new Error(`The start time must be in the future, but was: ${startTime}`);
+					}
+					//TODO: implement a locking mechanism for relops so that it can be cancelled.
+					//Once the timeout is set, we can only log errors, not act upon them.
+					setTimeout(function(){
+							operationPromise
+								.then(function(){}) //We can do nothing with the result
+								.catch(function(error){
+									console.error(`There was an error while performing the reload request: ${error.message}`);	
+								});
+						},
+						diffTime);
+					//We return immediately, we're not waiting for the scheduling to take place.
+					//We hope for the best
+					resolve();
+				});
+			} else {
+				resultPromise = operationPromise;
+			}
+		} else {
+			//If the reload process is locked, then we generate
+			//a promise that fails.
+			resultPromise = new Promise(function(fullfil,reject){
+				reject(new Exceptions.OpsviewReloadAlreadyInPlace());
 			});
 		}
 
@@ -232,10 +261,8 @@ class OpsviewV3 {
      */
     _getOpsviewProperties() {
         if (typeof this.opsviewPropertiesFile === 'undefined') {
-            let isOldWindows = process.platform === 'win32';
-            let home = process.env[isOldWindows ? 'USERPROFILE' : 'HOME'];
             try {
-                this.opsviewPropertiesFile = PropertiesReader(home + "/" + OPSVIEW_SECRET_FILE);
+                this.opsviewPropertiesFile = PropertiesReader(_getHomeDir() + "/" + OPSVIEW_SECRET_FILE);
             } catch (error) { //Normalize file not found error
                 throw new OpsviewPropertiesFileNotFoundError('The opsview properties file must exist in HOME/.opsview_secret');
             }
@@ -243,11 +270,55 @@ class OpsviewV3 {
 
         return this.opsviewPropertiesFile;
     }
+
+	/**
+	 * Only one config reload can be performed simultanously.
+	 * The locking is implemented with a file. If the file
+	 * exists, then the reload method cannot be called.
+	 * To unlock the 
+	 */ 
+	_lockReload(){
+		var lockFile = _getHomeDir()+'/'+OPSVIEW_RELOAD_LOCK_FILE;
+		fs.closeSync(fs.openSync(lockFile, 'w'));
+	}
+
+	/**
+	 * Unlocks the reload process by deleting the lock file
+	 */
+	_unlockReload(){
+		var lockFile = _getHomeDir()+'/'+OPSVIEW_RELOAD_LOCK_FILE;
+		fs.unlinkSync(lockFile);
+	}
+
+	/**
+	 * Checks whether the reload process is locked by
+	 * checking for the presence of the lock file.
+	 */
+	_isReloadLocked(){
+		var result = false;
+		//Canon way to check for the presence of a file. yuck.
+		try {
+			var lockFile = _getHomeDir()+'/'+OPSVIEW_RELOAD_LOCK_FILE;
+			fs.accessSync(lockFile); //If it doesn't throw error, the file exists.
+			result = true;
+		}catch(error){}
+
+		return result;
+	}
+
+	/**
+	 * Gets the home dir of the current user.
+	 */ 
+	_getHomeDir(){
+		let isOldWindows = process.platform === 'win32';
+		return process.env[isOldWindows ? 'USERPROFILE' : 'HOME'];
+	}
 }
 
 var OPSVIEW_SECRET_FILE = '.opsview_secret';
 var USERNAME_KEY = 'opsview.login.username';
 var PASSWORD_KEY = 'opsview.login.password';
+var OPSVIEW_RELOAD_LOCK_FILE = '.opsview_reload_lock';
 var OPSVIEW_HOST_KEY = 'opsview.host';
 var OPSVIEW_HEADER_USERNAME = 'X-Opsview-Username';
 var OPSVIEW_HEADER_TOKEN = 'X-Opsview-Token';
