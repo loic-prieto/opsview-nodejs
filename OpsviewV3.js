@@ -1,16 +1,17 @@
 "use strict";
 
-var Promise = require('bluebird');
-var PropertiesReader = require('properties-reader');
-var util = require('util');
-var extend = util._extend;
-var fs = require('fs');
-var http = require('request-promise');
-var hrt = require('human-readable-time');
-var Exceptions = require('./exceptions');
-var OpsviewPropertiesFileNotFoundError = Exceptions.OpsviewPropertiesFileNotFoundError;
-var OpsviewAuthenticationError = Exceptions.OpsviewAuthenticationError;
-var OpsviewApiError = Exceptions.OpsviewApiError;
+let Promise = require('bluebird');
+let PropertiesReader = require('properties-reader');
+let util = require('util');
+let extend = util._extend;
+let fs = require('fs');
+let http = require('request-promise');
+let HttpErrors = require('request-promise/errors');
+let hrt = require('human-readable-time');
+let Exceptions = require('./exceptions');
+let OpsviewPropertiesFileNotFoundError = Exceptions.OpsviewPropertiesFileNotFoundError;
+let OpsviewAuthenticationError = Exceptions.OpsviewAuthenticationError;
+let OpsviewApiError = Exceptions.OpsviewApiError;
 
 /**
  * Main class to interact with opsview.
@@ -29,93 +30,34 @@ class OpsviewV3 {
 	}
 
 	/**
-	 * Reloads the configuration of the server so that all pending changes are applied. Can be scheduled
-	 * instead of being performed immediately. If it is, then the reload is cancelable, by invoking the
-	 * cancelReload method of this class before the execution.
-	 * Since the scheduling is performed with a simple setTimeout, the nodejs process needs to be alive
-	 * to launch the execution in case it is scheduled.
-	 * TODO: still to implement
-	 * @param startTime {Date} - When to execute the reload. Will schedule it with setTimeout invocation
-	 * 	                         which means that if the node process attending this petition is dead, it
-	 * 	                         won't execute. Must be in the future compared to the current date.                         
-	 * @return {Promise} - 
-	 * 		If a date is not set, A Promise  with the following result:
-	 * 	status 200: {
-	 *		server_status: ...,
-	 *		configuration_status: ...,
-	 *		average_duration: ...,
-	 *		lastupdated: ...,
-	 *		auditlog_entries: ...,
-	 *		messages: [ ... ]
-	 * 	}
-	 * 		if a date is provided, it returns an empty promise, or throws an Error if the date is invalid.
-	 * 	@throws OpsviewReloadAlreadyInPlace - If executed without scheduling, and a reload is already in process
-	 * 	                                      this method will launch this exception.
-	 * 	@throws Error - If the startTime is a date before the current date.
+	 * Initiates an opsview configuration reload so that all config changes are applied.
+	 * The reload takes up to 10 minutes, which is why this method returns either an error
+	 * or a confirmation that the process has started.
+	 * To know the status of the reload, use the method checkReloadStatus.
+	 * 
+	 * @return {Boolean} - true if the process started sucessfully.
+	 * @throws OpsviewReloadAlreadyInPlace - If a reload is already in process this method will launch this exception.
 	 */
-	reload(startTime){
-
-		var operationPromise = this._buildOptionsFor(REQUEST_OPTIONS.RELOAD,ENDPOINTS.RELOAD,true)
-			.bind(this)
-			.then(function(requestObject){
-				//Since a reload may already be happening by the time this method starts
-				//we must check.
-				if(!this._isReloadLocked()){
-					this._lockReload();
-
-					return http(requestObject)
-						.then(function(response){
-							if(response.statusCode === 409) {
-								throw new Exceptions.OpsviewReloadAlreadyInPlace();
-							}
-
-							return response;
-						});
-				} else {
-					throw new Exception.OpsviewReloadAlreadyInPlace();
+	reload(){
+		
+		return this._buildOptionsFor(REQUEST_OPTIONS.RELOAD,ENDPOINTS.RELOAD,true)
+			.then((requestObject)=>{
+				// A relops takes up to 8 minutes, and this operation returns after it is completed.
+				// So we just timeout to 1 second to give time to the REST API to return an error
+				// if there's one, and treat a timeout error as a correct return.
+				// To see whether the opsview api has finished the reload, use the checkReloadStatus method.
+				requestObject.timeout=1000;
+				return http(requestObject); 
+			})
+			.catch(HttpErrors.StatusCodeError,(reason)=>{
+				if(reason.statusCode === 409) {
+					throw new Exceptions.OpsviewReloadAlreadyInPlace();
 				}
 			})
-			.finally(function(){ //Make sure the reload process is unlocked upong ending the reload.
-				this._unlockReload();	
+			.catch(HttpErrors.RequestError,(reason)=>{
+				// The timeout will come here, we just return true.
+				return true;
 			});
-
-		var resultPromise = null;
-		
-		if(!_isReloadLocked()){
-			_lockReload();
-			var isReloadScheduled = (typeof startTime !== "undefined");
-			if(isReloadScheduled){
-				resultPromise = new Promise(function(resolve){
-					var diffTime = startTime - (new Date());
-					if(diffTime < 0) {
-						throw new Error(`The start time must be in the future, but was: ${startTime}`);
-					}
-					//TODO: implement a locking mechanism for relops so that it can be cancelled.
-					//Once the timeout is set, we can only log errors, not act upon them.
-					setTimeout(function(){
-							operationPromise
-								.then(function(){}) //We can do nothing with the result
-								.catch(function(error){
-									console.error(`There was an error while performing the reload request: ${error.message}`);	
-								});
-						},
-						diffTime);
-					//We return immediately, we're not waiting for the scheduling to take place.
-					//We hope for the best
-					resolve();
-				});
-			} else {
-				resultPromise = operationPromise;
-			}
-		} else {
-			//If the reload process is locked, then we generate
-			//a promise that fails.
-			resultPromise = new Promise(function(fullfil,reject){
-				reject(new Exceptions.OpsviewReloadAlreadyInPlace());
-			});
-		}
-
-		return resultPromise;
 	}
 
     /**
@@ -143,20 +85,19 @@ class OpsviewV3 {
      */
     setDowntime(startTime, endTime, comment, hostPattern, servicesPattern) {
         return this._buildOptionsFor(REQUEST_OPTIONS.CREATE_DOWNTIME, ENDPOINTS.DOWNTIMES)
-            .bind(this)
-            .then(function (requestObject) {
+            .then((requestObject)=>{
                 OpsviewV3._selectHostAndService(requestObject, hostPattern, servicesPattern);
-				var opsviewDateFormat = new hrt('%YYYY%/%MM%/%DD% %hh%:%mm%:%ss%');
+				let opsviewDateFormat = new hrt('%YYYY%/%MM%/%DD% %hh%:%mm%:%ss%');
                 requestObject.body.starttime = opsviewDateFormat(startTime);
                 requestObject.body.endtime = opsviewDateFormat(endTime);
                 requestObject.body.comment = comment;
 
-                return http(requestObject)
-                    .catch(function(errorObject){
-						console.log("Error: "+util.inspect(errorObject));
-                        throw new OpsviewApiError(errorObject);
-                    });
-            });
+                return http(requestObject);
+            })
+			.catch((errorObject)=>{
+				console.log("Error: "+util.inspect(errorObject));
+				throw new OpsviewApiError(errorObject);
+			});
     }
 
     /**
@@ -204,23 +145,21 @@ class OpsviewV3 {
      */
     _buildOptionsFor(operation, endpoint, fetchToken) {
         fetchToken = typeof fetchToken === 'undefined' ? true : fetchToken;
-        var result = null;
+        let result = null;
 
         let requestOptions = extend({}, operation);
         requestOptions.uri = this.opsviewHost + endpoint;
         if (this.token === null && fetchToken) {
             result = this._getToken()
-                .bind(this)
-                .then(function (token) {
+                .then((token)=>{
                     requestOptions.headers[OPSVIEW_HEADER_USERNAME] = this.username;
                     requestOptions.headers[OPSVIEW_HEADER_TOKEN] = token;
                     return requestOptions;
                 });
         } else {
-            let self = this;
-            result = new Promise(function (resolve) {
-                requestOptions.headers[OPSVIEW_HEADER_USERNAME] = self.username;
-                requestOptions.headers[OPSVIEW_HEADER_TOKEN] = self.token;
+            result = new Promise((resolve)=>{
+                requestOptions.headers[OPSVIEW_HEADER_USERNAME] = this.username;
+                requestOptions.headers[OPSVIEW_HEADER_TOKEN] = this.token;
                 resolve(requestOptions);
             });
         }
@@ -236,20 +175,19 @@ class OpsviewV3 {
      */
     _getToken() {
         return this._buildOptionsFor(REQUEST_OPTIONS.AUTHENTICATION, ENDPOINTS.AUTHENTICATION, false)
-            .bind(this)
-            .then(function (requestObject) {
+            .then((requestObject)=>{
                 requestObject.body.username = this.username;
                 requestObject.body.password = this.password;
 
-                return http(requestObject).promise().bind(this)
-                    .then(function (response) {
-                        this.token = response.token;
-                        return this.token;
-                    })
-                    .catch(function(error) {
-                        throw new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.error.message}`);
-                    });
-            });
+                return http(requestObject);
+            })
+			.then((tokenResponse)=>{
+				this.token = tokenResponse.token;
+				return this.token;
+			})
+			.catch((error)=>{
+				throw new OpsviewAuthenticationError(`The opsview authentication api throwed an error: ${error.error.message}`);
+			});
     }
 
     /**
@@ -262,49 +200,15 @@ class OpsviewV3 {
     _getOpsviewProperties() {
         if (typeof this.opsviewPropertiesFile === 'undefined') {
             try {
-                this.opsviewPropertiesFile = PropertiesReader(_getHomeDir() + "/" + OPSVIEW_SECRET_FILE);
+				console.log("Looking opsview secret file in: "+this._getHomeDir()+"/"+OPSVIEW_SECRET_FILE);
+                this.opsviewPropertiesFile = PropertiesReader(this._getHomeDir() + "/" + OPSVIEW_SECRET_FILE);
             } catch (error) { //Normalize file not found error
-                throw new OpsviewPropertiesFileNotFoundError('The opsview properties file must exist in HOME/.opsview_secret');
+                throw new OpsviewPropertiesFileNotFoundError(`The opsview properties file must exist in HOME/.opsview_secret: ${error}`);
             }
         }
 
         return this.opsviewPropertiesFile;
     }
-
-	/**
-	 * Only one config reload can be performed simultanously.
-	 * The locking is implemented with a file. If the file
-	 * exists, then the reload method cannot be called.
-	 * To unlock the 
-	 */ 
-	_lockReload(){
-		var lockFile = _getHomeDir()+'/'+OPSVIEW_RELOAD_LOCK_FILE;
-		fs.closeSync(fs.openSync(lockFile, 'w'));
-	}
-
-	/**
-	 * Unlocks the reload process by deleting the lock file
-	 */
-	_unlockReload(){
-		var lockFile = _getHomeDir()+'/'+OPSVIEW_RELOAD_LOCK_FILE;
-		fs.unlinkSync(lockFile);
-	}
-
-	/**
-	 * Checks whether the reload process is locked by
-	 * checking for the presence of the lock file.
-	 */
-	_isReloadLocked(){
-		var result = false;
-		//Canon way to check for the presence of a file. yuck.
-		try {
-			var lockFile = _getHomeDir()+'/'+OPSVIEW_RELOAD_LOCK_FILE;
-			fs.accessSync(lockFile); //If it doesn't throw error, the file exists.
-			result = true;
-		}catch(error){}
-
-		return result;
-	}
 
 	/**
 	 * Gets the home dir of the current user.
@@ -315,20 +219,18 @@ class OpsviewV3 {
 	}
 }
 
-var OPSVIEW_SECRET_FILE = '.opsview_secret';
-var USERNAME_KEY = 'opsview.login.username';
-var PASSWORD_KEY = 'opsview.login.password';
-var OPSVIEW_RELOAD_LOCK_FILE = '.opsview_reload_lock';
-var OPSVIEW_HOST_KEY = 'opsview.host';
-var OPSVIEW_HEADER_USERNAME = 'X-Opsview-Username';
-var OPSVIEW_HEADER_TOKEN = 'X-Opsview-Token';
+let OPSVIEW_SECRET_FILE = '.opsview_secret';
+let USERNAME_KEY = 'opsview.login.username';
+let PASSWORD_KEY = 'opsview.login.password';
+let OPSVIEW_HOST_KEY = 'opsview.host';
+let OPSVIEW_HEADER_USERNAME = 'X-Opsview-Username';
+let OPSVIEW_HEADER_TOKEN = 'X-Opsview-Token';
 
-var JSON_HEADERS = {
+let JSON_HEADERS = {
     "Content-type": "application/json"
-    //"Accept": "application/json"
 };
 
-var REQUEST_OPTIONS = {
+let REQUEST_OPTIONS = {
     AUTHENTICATION: {
         method: 'POST',
         body: {},qs:{},
@@ -349,7 +251,7 @@ var REQUEST_OPTIONS = {
 	}
 };
 
-var ENDPOINTS = {
+let ENDPOINTS = {
     AUTHENTICATION: "/login",
     DOWNTIMES: '/downtime',
 	RELOAD: '/reload'

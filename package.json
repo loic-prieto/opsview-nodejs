@@ -1,6 +1,6 @@
 {
   "name": "opsview-api",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A library to access opsview functionality from nodejs scripts instead of interfacing to the REST API directly",
   "main": "index.js",
   "repository":"https://github.com/loic-prieto/opsview-nodejs.git",

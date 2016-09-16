@@ -39,7 +39,7 @@ class Opsview {
 			if(error instanceof OpsviewPropertiesFileNotFoundError) {
 				throw error;
 			} else {
-				OpsviewPropertiesFileNotFoundError//An error here means that the code file could not be found.
+				//An error here means that the code file could not be found.
 	            throw new OpsviewVersionNotSupportedError(`The specified version opsview (${version}) is not supported by this library: ${error}`);
 			}
         }
